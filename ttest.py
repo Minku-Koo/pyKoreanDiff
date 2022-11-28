@@ -51,29 +51,29 @@ class KoreanDiff:
         size : list
             same block size
         '''
-        rendered_data = ['']
+        rendered_data = []
         loc = pos[0] + str(pos[1])
         print(f'loc {loc}')
         # is_red_block = False
         # temp =  ['hello ',  self.red_color, 'this is bold_red',  'and default string']
         for i, point in enumerate(start):
+            print(point)
             if i == 0:
                 if point > 0: #start with diff 
                     rendered_data.append(self.red_color)
                     rendered_data.append(data[:point])
+                    rendered_data.append(data[point:point + size[i]])
                 else:
-                    rendered_data.append(data[:point])
-                    rendered_data.append(self.red_color)
                     rendered_data.append(data[point:point + size[i]])
             else:
                 # if is_red_block:
-                rendered_data.append(self.red_color)
                 rendered_data.append(data[point:point + size[i]])
                 
             # next black
             # check end 
             if i < len(start) - 1:
-                rendered_data.append(data[point + size[i + 1]:start[i + 1]])
+                rendered_data.append(self.red_color)
+                rendered_data.append(data[point + size[i + 1] - 1:start[i + 1]])
            
         print(rendered_data)
         self.output_sheet.write_rich_string(loc, *rendered_data)
@@ -84,7 +84,7 @@ class KoreanDiff:
         self.wb = xl.load_workbook(self.source_excel_path)
         self.first_sheetname = self.wb.sheetnames[0]
         # do  get matching blocks
-        for r_index, row in enumerate(self.wb[self.first_sheetname].iter_rows(min_row = 1)):
+        for r_index, row in enumerate(self.wb[self.first_sheetname].iter_rows(min_row = 2)):
         # for each line
             # print(row[self.source_row_num].value)
             # print(row[self.target_row_num].value)
@@ -109,6 +109,7 @@ class KoreanDiff:
             self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num].value, source_index_list, size_list)
             self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num].value, source_index_list, size_list)
             print("*"*30)
+            break
         # self.write_data_to_cell(('A', 2), '', [], [])
         self.output_workbook.close()
         return 
