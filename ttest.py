@@ -57,7 +57,7 @@ class KoreanDiff:
         # is_red_block = False
         # temp =  ['hello ',  self.red_color, 'this is bold_red',  'and default string']
         for i, point in enumerate(start):
-            print(point)
+            # print(point)
             if i == 0:
                 if point > 0: #start with diff 
                     rendered_data.append(self.red_color)
@@ -67,13 +67,15 @@ class KoreanDiff:
                     rendered_data.append(data[point:point + size[i]])
             else:
                 # if is_red_block:
-                rendered_data.append(data[point:point + size[i]])
+                if point != point + size[i]:
+                    rendered_data.append(data[point:point + size[i]])
                 
             # next black
             # check end 
             if i < len(start) - 1:
                 rendered_data.append(self.red_color)
-                rendered_data.append(data[point + size[i + 1] - 1:start[i + 1]])
+                if start[i + 1] != point + size[i]:
+                    rendered_data.append(data[point + size[i]:start[i + 1]])
            
         print(rendered_data)
         self.output_sheet.write_rich_string(loc, *rendered_data)
@@ -107,7 +109,7 @@ class KoreanDiff:
                 size_list.append(mb.size)
             # print(f"row {r_index + 1}")
             self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num].value, source_index_list, size_list)
-            self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num].value, source_index_list, size_list)
+            self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num].value, target_index_list, size_list)
             print("*"*30)
             break
         # self.write_data_to_cell(('A', 2), '', [], [])
