@@ -1,5 +1,3 @@
-
-
 from difflib import SequenceMatcher
 import openpyxl as xl
 import xlsxwriter
