@@ -2,7 +2,6 @@ from difflib import SequenceMatcher
 import openpyxl as xl
 import xlsxwriter
 import pandas
-import xlrd
 import tkinter.font 
 from tkinter import filedialog as fd
 import tkinter as tk
