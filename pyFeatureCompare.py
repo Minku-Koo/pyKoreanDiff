@@ -9,7 +9,6 @@ import tkinter as tk
 # https://xlsxwriter.readthedocs.io/example_rich_strings.html
 # import difflib
 
-
 class KoreanDiff:
     def __init__(self, source_path, compare_col):
         # xls -> xlsx
@@ -21,7 +20,7 @@ class KoreanDiff:
 
         self.source_excel_path = source_path
         splitChar = '//'
-        if '\\' not in source_path:
+        if '\\' not in source_path: 
             splitChar = '/'
 
         temp_target_path_list = source_path.split(splitChar)
@@ -45,12 +44,18 @@ class KoreanDiff:
         self.output_sheet.set_column(self.source_row_num, self.source_row_num, self.cell_width)
         self.output_sheet.set_column(self.target_row_num, self.target_row_num, self.cell_width)
 
+        self.change_bg_color = '#FFFFCC'
+        self.title_bg_color = ''
+        self.head_bg_color = '#FF6600'
+
+        self.rem_word = '_x000D_'
+
         # text auto newline
-        self.cell_format = self.output_workbook.add_format({'text_wrap': True})
-        
+        self.cell_format = self.output_workbook.add_format({'text_wrap': True, 'bg_color': self.change_bg_color, 'border': 1})
+        self.cell_head = self.output_workbook.add_format({'text_wrap': True, 'bg_color': self.head_bg_color, 'border': 1})
         # red/black text color
-        self.red_color = self.output_workbook.add_format({'color': 'red', 'text_wrap': True})
-        self.black_color = self.output_workbook.add_format({'color': 'black', 'text_wrap': True})
+        self.red_color = self.output_workbook.add_format({'color': 'red', 'text_wrap': True, 'bg_color': self.change_bg_color, 'border': 1})
+        self.black_color = self.output_workbook.add_format({'color': 'black', 'text_wrap': True, 'bg_color': self.change_bg_color, 'border': 1})
         
         return
 
@@ -68,6 +73,8 @@ class KoreanDiff:
         rendered_data = []
         start_with = 'black'
         loc = pos[0] + str(pos[1])  # cell location
+
+        
         
         for i, point in enumerate(start):
             if i == 0:  # if first data
@@ -94,8 +101,6 @@ class KoreanDiff:
                     rendered_data.append(self.red_color)
                     rendered_data.append(data[point + size[i]:start[i + 1]])
            
-        # print(rendered_data)
-
         if len(rendered_data) > 2:  # over two block
             self.output_sheet.write_rich_string(loc, *rendered_data, self.cell_format)
         else:   # just single block
@@ -110,30 +115,42 @@ class KoreanDiff:
         # read source excel
         self.wb = xl.load_workbook(self.source_excel_path)
         self.first_sheetname = self.wb.sheetnames[0]
+
         # do  get matching blocks
-        for r_index, row in enumerate(self.wb[self.first_sheetname].iter_rows(min_row = 1)):
+        for r_index, row in enumerate(self.wb[self.first_sheetname].iter_rows(min_row = 0)):
+            if not row[0].value and row[self.source_row_num].value:
+                self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, self.cell_head)
+                continue
+
             # if no data
             if not row[self.source_row_num].value:  
                 # another data to red all
-                self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num].value, self.red_color)
+                if row[self.target_row_num].value: 
+                    row[self.target_row_num].value = row[self.target_row_num].value.replace(self.rem_word, '')
+                    self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num].value, self.red_color)
                 continue
-            if not row[self.target_row_num].value:  
-                self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, self.red_color)
+            if not row[self.target_row_num].value:
+                if row[self.source_row_num].value: 
+                    row[self.source_row_num].value = row[self.source_row_num].value.replace(self.rem_word, '')
+                    self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, self.red_color)
                 continue
 
             # same match -> black
+            row[self.source_row_num].value = row[self.source_row_num].value.replace(self.rem_word, '')
+            row[self.target_row_num].value = row[self.target_row_num].value.replace(self.rem_word, '')
+            
             s = SequenceMatcher(None, row[self.source_row_num].value, row[self.target_row_num].value)
             source_index_list, target_index_list, size_list = [], [], []
             for mb in s.get_matching_blocks():
                 source_index_list.append(mb.a)
                 target_index_list.append(mb.b)
                 size_list.append(mb.size)
-                
+            
             self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num].value, source_index_list, size_list)
             self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num].value, target_index_list, size_list)
             
-            
         self.output_workbook.close()
+
         return True
 
 class FeatureCompare:
@@ -146,14 +163,14 @@ class FeatureCompare:
         title = "Feature Compare"
         subtitle = 'DA Feature Compare'
         comment = """
-1. Open -> Difference Chart File 선택
-2. Difference Chart에서 비교하고 싶은 두 Column을 입력 (기본값은 B, G)
+1. Open -> Feature Compare File 선택
+2. Feature Compare에서 비교하고 싶은 두 Column을 입력 (기본값은 B, G)
 3. Compare 버튼을 통해 Feature compare 실행
-4. 선택한 Difference Chart와 같은 폴더에 compared_ 로 시작하는 결과 파일이 생성됩니다.
+4. 선택한 Feature Compare와 같은 폴더에 compared_ 로 시작하는 결과 파일이 생성됩니다.
 
 (※ 작업 폴더에 동일한 이름의 xlsx 파일이 생성될 수 있습니다.)
         """
-        copyrighter = "DAPalindrome"
+        copyrighter = "문의 및 VOC : minku.koo"
         
         self.window = tk.Tk()
         self.window.title(title)
@@ -238,7 +255,7 @@ class FeatureCompare:
         self.progressBar.pack()
 
         copyrightLab = tk.Label(self.window,
-                        fg='#CEE3F6',
+                        fg='#0033CC',
                         text=copyrighter,
                         font=copyrightFont)
         copyrightLab.pack()
@@ -253,6 +270,7 @@ class FeatureCompare:
             self.source_dir_path = filepath
             self.progressBar.config(text = "Press [Compare]", fg = 'black')
             self.sourceDirPath.config(text = self.source_dir_path)
+
         return 
 
     def __compareText(self):
@@ -261,8 +279,8 @@ class FeatureCompare:
 
         try:
             check = k_diff.run()
-
-        except IndexError:
+        except IndexError as e:
+            print(e)
             self.progressBar.config(text = "Error: Column data is not in Excel file !!", fg = 'red')
 
         if check:
@@ -272,5 +290,4 @@ class FeatureCompare:
 
 
 if __name__ == "__main__":
-    
     fc = FeatureCompare()
