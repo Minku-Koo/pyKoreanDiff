@@ -1,23 +1,16 @@
 from difflib import SequenceMatcher
-import openpyxl as xl
 import xlsxwriter
 import pandas
 import tkinter.font 
 from tkinter import filedialog as fd
 import tkinter as tk
+import xlrd as xl
 
 # https://xlsxwriter.readthedocs.io/example_rich_strings.html
 # import difflib
 
 class KoreanDiff:
     def __init__(self, source_path, compare_col, diffYes_col):
-        # xls -> xlsx (xls 파일은 작업 불가능함)
-        if source_path.split(".")[-1] == 'xls':
-            temp = source_path
-            source_path += 'x'
-            df = pandas.read_excel(temp)
-            df.to_excel(source_path, index=False)
-
         self.source_excel_path = source_path
         splitChar = '//' 
         # 파일 경로 일치시킴
@@ -41,7 +34,7 @@ class KoreanDiff:
         self.output_workbook = xlsxwriter.Workbook(self.target_excel_path)
         self.output_sheet = self.output_workbook.add_worksheet()
 
-        self.cell_width = 40    # output cell width
+        self.cell_width = 60    # output cell width
 
         self.output_sheet.set_column(self.source_row_num, self.source_row_num, self.cell_width)
         self.output_sheet.set_column(self.target_row_num, self.target_row_num, self.cell_width)
@@ -113,59 +106,70 @@ class KoreanDiff:
         return 
 
     def run(self):
-        # read source excel
-        self.wb = xl.load_workbook(self.source_excel_path)
-        self.first_sheetname = self.wb.sheetnames[0]
+        print(f'self.source_excel_path {self.source_excel_path}')
+        self.wb = pandas.ExcelFile(self.source_excel_path) # use r before absolute file path 
+        self.first_sheetname = self.wb.parse('FeatureSpecCompare') 
 
         # do  get matching blocks
-        for r_index, row in enumerate(self.wb[self.first_sheetname].iter_rows(min_row = 0)):
-            # 피쳐명인 경우
-            if not row[0].value and row[self.source_row_num].value:
-                self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, self.cell_head)
+        for r_index, row in self.first_sheetname.iterrows():
+            # if Feature header
+            if  (not pandas.isna(row[self.target_row_num]) or not pandas.isna(row[self.source_row_num])) and (
+                pandas.isna(row[self.target_row_num - 1]) and pandas.isna(row[self.source_row_num - 1])
+            ):
+                if not pandas.isna(row[self.target_row_num]):
+                    self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], self.cell_head)
+
+                if not pandas.isna(row[self.source_row_num]):
+                    self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], self.cell_head)
+
                 continue
 
-            # if no data
-            if not row[self.source_row_num].value:  
+            # if no data at source
+            if pandas.isna(row[self.source_row_num]) and not pandas.isna(row[self.target_row_num]) :
                 # another data to red all
-                if row[self.target_row_num].value: 
-                    row[self.target_row_num].value = row[self.target_row_num].value.replace(self.rem_word, '')
-                    self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num].value, self.red_color)
+                if row[self.target_row_num]: 
+                    row[self.target_row_num] = row[self.target_row_num].replace(self.rem_word, '')
+                    self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], self.red_color)
                 continue
-            if not row[self.target_row_num].value:
-                if row[self.source_row_num].value: 
-                    row[self.source_row_num].value = row[self.source_row_num].value.replace(self.rem_word, '')
-                    self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, self.red_color)
+
+            # if no data at target
+            if pandas.isna(row[self.target_row_num]) and not pandas.isna(row[self.source_row_num]):
+                if row[self.source_row_num]: 
+                    row[self.source_row_num] = row[self.source_row_num].replace(self.rem_word, '')
+                    self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], self.red_color)
                 continue
             
-
-            # remove trash word
-            row[self.source_row_num].value = row[self.source_row_num].value.replace(self.rem_word, '')
-            row[self.target_row_num].value = row[self.target_row_num].value.replace(self.rem_word, '')
+            # no data both target and source
+            if pandas.isna(row[self.target_row_num]) and pandas.isna(row[self.source_row_num]):
+                continue
             
             # 둘이 같은데 y 인 경우 -> continue
             # 둘이 같은데 모델 확인해야하는 경우 -> continue
-            if row[self.source_row_num].value == row[self.target_row_num].value:
+            if row[self.source_row_num] == row[self.target_row_num]:
                 font_color = self.black_color
-                if '[모델사양' in row[self.target_row_num].value: # 모델사양 확인
+                if '[모델사양' in row[self.target_row_num]: # 모델사양 확인
                     font_color = self.orange_color
-                elif row[self.diff_yes_num].value == "Y": # 첨부파일의 변경
+
+                elif row[self.diff_yes_num] == "Y": # 첨부파일의 변경
                     font_color = self.green_color
+
                 else: # 변경점 없음
                     pass
 
-                self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num].value, font_color)
-                self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num].value, font_color)
+                self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], font_color)
+                self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], font_color)
                 continue
-            
-            s = SequenceMatcher(None, row[self.source_row_num].value, row[self.target_row_num].value)
+
+            # print(f'{row[self.source_row_num]} | {row[self.target_row_num]}')
+            s = SequenceMatcher(None, row[self.source_row_num], row[self.target_row_num])
             source_index_list, target_index_list, size_list = [], [], []
             for mb in s.get_matching_blocks():
                 source_index_list.append(mb.a)
                 target_index_list.append(mb.b)
                 size_list.append(mb.size)
             
-            self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num].value, source_index_list, size_list)
-            self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num].value, target_index_list, size_list)
+            self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num], source_index_list, size_list)
+            self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num], target_index_list, size_list)
             
         self.output_workbook.close()
 
@@ -182,18 +186,15 @@ class FeatureCompare:
         subtitle = 'PRMS Feature Compare'
         comment = """
 1. Open -> PRMS에서 Export한 Feature Compare File 선택
-2. Feature Compare에서 비교하고 싶은 두 Column을 입력 (기본값은 B, G)
-3. 세번째 칸에 Y (변경됨)가 적힌 Column을 입력 (기본값은 K)
-4. Compare 버튼을 통해 실행
-5. 작업 문서와 동일한 폴더에 'compared_' 로 시작하는 결과 파일이 생성됩니다.
-
-(※ 작업 폴더에 동일한 이름의 xlsx 파일이 생성될 수 있습니다)
+2. 경로 확인
+3. Compare 버튼을 통해 실행
+4. 작업 문서와 동일한 폴더에 'compared_' 로 시작하는 결과 파일이 생성됩니다.
         """
         copyrighter = "문의 : @minku.koo"
         
         self.window = tk.Tk()
         self.window.title(title)
-        self.window.geometry('600x600')
+        self.window.geometry('500x500')
 
         subtitleFont = tkinter.font.Font(size = 18, weight = 'bold')
         entryFont = tkinter.font.Font(size = 13)
@@ -213,7 +214,7 @@ class FeatureCompare:
                         width = 600,
                         padx = 20,
                         justify='left')
-        label.pack()
+        label.pack(pady=8)
         
         btnBorderFrame = tkinter.LabelFrame(self.window, bd = 2, bg = "black")
         btnBorderFrame.pack()
@@ -233,31 +234,7 @@ class FeatureCompare:
                         width = 600,
                         padx = 20,
                         pady=20)
-        self.sourceDirPath.pack()
-
-        self.compareColEntryA = tkinter.Entry(
-                                        self.window,
-                                        width=6,
-                                        font=entryFont
-                                    )
-        self.compareColEntryA.insert(0, self.compare_column[0])
-        self.compareColEntryA.pack()
-
-        self.compareColEntryB = tkinter.Entry(
-                                        self.window,
-                                        width=6,
-                                        font=entryFont
-                                    )
-        self.compareColEntryB.insert(0, self.compare_column[1])
-        self.compareColEntryB.pack(pady=6)
-
-        self.diffYesCol = tkinter.Entry(
-                                        self.window,
-                                        width=6,
-                                        font=entryFont
-                                    )
-        self.diffYesCol.insert(0, self.compare_column[2])
-        self.diffYesCol.pack(pady=12)
+        self.sourceDirPath.pack(pady=6)
         
         btnBorderFrame = tkinter.LabelFrame(self.window, bd = 2, bg = "black")
         btnBorderFrame.pack()
@@ -307,8 +284,10 @@ class FeatureCompare:
         '''
         - Compare 버튼을 누르면 동작하는 event 함수
         '''
-        k_diff = KoreanDiff(self.source_dir_path, (self.compareColEntryA.get(), self.compareColEntryB.get()), self.diffYesCol.get())
+        # k_diff = KoreanDiff(self.source_dir_path, (self.compareColEntryA.get(), self.compareColEntryB.get()), self.diffYesCol.get())
+        k_diff = KoreanDiff(self.source_dir_path, (self.compare_column[0], self.compare_column[1]), self.compare_column[2])
         check = False
+        # check = k_diff.run()
 
         try:
             check = k_diff.run() # 컴페어 실행
@@ -316,14 +295,15 @@ class FeatureCompare:
             # 컴페어 실패할 경우 (컬럼에 데이터가 없는 경우)
             print(e)
             self.progressBar.config(text = "Error: Column data is not in Excel file !!", fg = 'red')
-        
-        except:
+        except Exception as e:
+            print(e)
             self.progressBar.config(text = "Error !!", fg = 'red')
 
         if check:
             # 실행 성공
             self.progressBar.config(text = "Feature Compare Done", fg = 'blue')
 
+        print('done')
         return 
 
 
