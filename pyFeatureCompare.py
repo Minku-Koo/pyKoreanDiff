@@ -1,10 +1,9 @@
 from difflib import SequenceMatcher
 import xlsxwriter
 import pandas
-import tkinter.font 
+import tkinter.font
 from tkinter import filedialog as fd
 import tkinter as tk
-import xlrd as xl
 
 # https://xlsxwriter.readthedocs.io/example_rich_strings.html
 # import difflib
@@ -14,7 +13,7 @@ class KoreanDiff:
         self.source_excel_path = source_path
         splitChar = '//' 
         # 파일 경로 일치시킴
-        if '\\' not in source_path: 
+        if '\\' not in source_path:
             splitChar = '/'
 
         temp_target_path_list = source_path.split(splitChar)
@@ -43,7 +42,7 @@ class KoreanDiff:
         self.change_bg_color = '#FFFFCC'
         self.head_bg_color = '#FF6600'
 
-        self.rem_word = '_x000D_'
+        # self.rem_word = '_x000D_'
 
         # text auto newline
         self.cell_format = self.output_workbook.add_format({'text_wrap': True, 'bg_color': self.change_bg_color, 'border': 1})
@@ -107,7 +106,9 @@ class KoreanDiff:
 
     def run(self):
         print(f'self.source_excel_path {self.source_excel_path}')
+
         self.wb = pandas.ExcelFile(self.source_excel_path) # use r before absolute file path 
+        print('read done')
         self.first_sheetname = self.wb.parse('FeatureSpecCompare') 
 
         # do  get matching blocks
@@ -128,14 +129,12 @@ class KoreanDiff:
             if pandas.isna(row[self.source_row_num]) and not pandas.isna(row[self.target_row_num]) :
                 # another data to red all
                 if row[self.target_row_num]: 
-                    row[self.target_row_num] = row[self.target_row_num].replace(self.rem_word, '')
                     self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], self.red_color)
                 continue
 
             # if no data at target
             if pandas.isna(row[self.target_row_num]) and not pandas.isna(row[self.source_row_num]):
                 if row[self.source_row_num]: 
-                    row[self.source_row_num] = row[self.source_row_num].replace(self.rem_word, '')
                     self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], self.red_color)
                 continue
             
@@ -147,7 +146,7 @@ class KoreanDiff:
             # 둘이 같은데 모델 확인해야하는 경우 -> continue
             if row[self.source_row_num] == row[self.target_row_num]:
                 font_color = self.black_color
-                if '[모델사양' in row[self.target_row_num]: # 모델사양 확인
+                if '[紐⑤뜽?占쏙옙?占쏙옙' in row[self.target_row_num]: # 모델사양 확인
                     font_color = self.orange_color
 
                 elif row[self.diff_yes_num] == "Y": # 첨부파일의 변경
@@ -303,7 +302,7 @@ class FeatureCompare:
             # 실행 성공
             self.progressBar.config(text = "Feature Compare Done", fg = 'blue')
 
-        print('done')
+        print('work done')
         return 
 
 
