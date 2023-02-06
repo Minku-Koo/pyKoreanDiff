@@ -4,6 +4,8 @@ import pandas
 import tkinter.font
 from tkinter import filedialog as fd
 import tkinter as tk
+import os
+import xlwings as xw
 
 # https://xlsxwriter.readthedocs.io/example_rich_strings.html
 # import difflib
@@ -105,14 +107,14 @@ class KoreanDiff:
         return 
 
     def run(self):
-        print(f'self.source_excel_path {self.source_excel_path}')
-
-        self.wb = pandas.ExcelFile(self.source_excel_path) # use r before absolute file path 
-        print('read done')
-        self.first_sheetname = self.wb.parse('FeatureSpecCompare') 
+        app = xw.App(visible=False) # create app instance
+        book = xw.Book(f'{os.path.abspath(self.source_excel_path)}') # read excel
+        self.first_sheetname = book.sheets(1).used_range.options(pandas.DataFrame, index=False).value
+        app.kill() # hide viewer
 
         # do  get matching blocks
         for r_index, row in self.first_sheetname.iterrows():
+            # print(row)
             # if Feature header
             if  (not pandas.isna(row[self.target_row_num]) or not pandas.isna(row[self.source_row_num])) and (
                 pandas.isna(row[self.target_row_num - 1]) and pandas.isna(row[self.source_row_num - 1])
@@ -146,7 +148,7 @@ class KoreanDiff:
             # 둘이 같은데 모델 확인해야하는 경우 -> continue
             if row[self.source_row_num] == row[self.target_row_num]:
                 font_color = self.black_color
-                if '[紐⑤뜽?占쏙옙?占쏙옙' in row[self.target_row_num]: # 모델사양 확인
+                if '[모델사양' in row[self.target_row_num]: # 모델사양 확인
                     font_color = self.orange_color
 
                 elif row[self.diff_yes_num] == "Y": # 첨부파일의 변경
@@ -159,7 +161,6 @@ class KoreanDiff:
                 self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], font_color)
                 continue
 
-            # print(f'{row[self.source_row_num]} | {row[self.target_row_num]}')
             s = SequenceMatcher(None, row[self.source_row_num], row[self.target_row_num])
             source_index_list, target_index_list, size_list = [], [], []
             for mb in s.get_matching_blocks():
@@ -283,13 +284,12 @@ class FeatureCompare:
         '''
         - Compare 버튼을 누르면 동작하는 event 함수
         '''
-        # k_diff = KoreanDiff(self.source_dir_path, (self.compareColEntryA.get(), self.compareColEntryB.get()), self.diffYesCol.get())
         k_diff = KoreanDiff(self.source_dir_path, (self.compare_column[0], self.compare_column[1]), self.compare_column[2])
         check = False
-        # check = k_diff.run()
 
         try:
             check = k_diff.run() # 컴페어 실행
+
         except IndexError as e:
             # 컴페어 실패할 경우 (컬럼에 데이터가 없는 경우)
             print(e)
@@ -301,8 +301,8 @@ class FeatureCompare:
         if check:
             # 실행 성공
             self.progressBar.config(text = "Feature Compare Done", fg = 'blue')
+            print('work done')
 
-        print('work done')
         return 
 
 
