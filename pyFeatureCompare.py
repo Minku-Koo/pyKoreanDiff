@@ -106,6 +106,12 @@ class KoreanDiff:
 
         return 
 
+    def _rem_char(self, line):
+        rem_char = [' ', ' ', '\r', '\n']
+        for r in rem_char:
+            line = line.replace(r, '')
+        return line
+
     def run(self):
         app = xw.App(visible=False) # create app instance
         book = xw.Book(f'{os.path.abspath(self.source_excel_path)}') # read excel
@@ -132,12 +138,14 @@ class KoreanDiff:
                 # another data to red all
                 if row[self.target_row_num]: 
                     self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], self.red_color)
+                    self.output_sheet.write(self.diffYesCol + str(r_index + 1), 'NEW', self.black_color)
                 continue
 
             # if no data at target
             if pandas.isna(row[self.target_row_num]) and not pandas.isna(row[self.source_row_num]):
                 if row[self.source_row_num]: 
                     self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], self.red_color)
+                    self.output_sheet.write(self.diffYesCol + str(r_index + 1), 'DEL', self.black_color)
                 continue
             
             # no data both target and source
@@ -146,19 +154,24 @@ class KoreanDiff:
             
             # 둘이 같은데 y 인 경우 -> continue
             # 둘이 같은데 모델 확인해야하는 경우 -> continue
-            if row[self.source_row_num] == row[self.target_row_num]:
+            if self._rem_char(row[self.source_row_num]) == self._rem_char(row[self.target_row_num]):
                 font_color = self.black_color
+                tag = 'SAME'
+                
                 if '[모델사양' in row[self.target_row_num]: # 모델사양 확인
                     font_color = self.orange_color
+                    tag = 'MODEL'
 
                 elif row[self.diff_yes_num] == "Y": # 첨부파일의 변경
                     font_color = self.green_color
+                    tag = 'FILE'
 
                 else: # 변경점 없음
                     pass
 
                 self.output_sheet.write(self.source_row_char + str(r_index + 1), row[self.source_row_num], font_color)
                 self.output_sheet.write(self.target_row_char + str(r_index + 1), row[self.target_row_num], font_color)
+                self.output_sheet.write(self.diffYesCol + str(r_index + 1), tag, self.black_color)
                 continue
 
             s = SequenceMatcher(None, row[self.source_row_num], row[self.target_row_num])
@@ -170,6 +183,10 @@ class KoreanDiff:
             
             self.write_data_to_cell((self.source_row_char, r_index + 1), row[self.source_row_num], source_index_list, size_list)
             self.write_data_to_cell((self.target_row_char, r_index + 1), row[self.target_row_num], target_index_list, size_list)
+            if len(size_list) == 1:
+                self.output_sheet.write(self.diffYesCol + str(r_index + 1), 'SAME', self.black_color)
+            else:
+                self.output_sheet.write(self.diffYesCol + str(r_index + 1), 'MOD', self.black_color)
             
         self.output_workbook.close()
 
@@ -182,7 +199,7 @@ class FeatureCompare:
         self.processPercent = 0
         self.compare_column = ['B', 'G', 'K']
 
-        title = "Feature Compare v1.0"
+        title = "Feature Compare v1.1"
         subtitle = 'PRMS Feature Compare'
         comment = """
 1. Open -> PRMS에서 Export한 Feature Compare File 선택
@@ -308,3 +325,10 @@ class FeatureCompare:
 
 if __name__ == "__main__":
     fc = FeatureCompare()
+
+
+
+'''
+- 파일첨부, 달라진 부분, 모델사양 소팅기능
+- 수작업 아예 없도록?
+'''
